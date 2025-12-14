@@ -14,11 +14,16 @@ from dbterd.helpers.yaml import YamlParseError, load_yaml_text
 
 if sys.version_info >= (3, 11):
     import tomllib
+
+    TOMLDecodeError: type[Exception] = tomllib.TOMLDecodeError
 else:  # pragma: no cover
     try:
         import tomli as tomllib
+
+        TOMLDecodeError: type[Exception] = tomllib.TOMLDecodeError
     except ImportError:
         tomllib = None  # type: ignore
+        TOMLDecodeError: type[Exception] = ValueError  # type: ignore
 
 
 class ConfigError(Exception):
@@ -62,7 +67,7 @@ def has_dbterd_section(toml_path: Path) -> bool:
         with open(toml_path, "rb") as f:
             data = tomllib.load(f)
             return "tool" in data and "dbterd" in data.get("tool", {})
-    except Exception:
+    except (OSError, TOMLDecodeError):
         return False
 
 
@@ -79,13 +84,13 @@ def load_yaml_config(config_path: Path) -> dict[str, Any]:
         ConfigError: If YAML file is invalid
     """
     try:
-        with open(config_path) as f:
+        with open(config_path, encoding="utf-8") as f:
             content = f.read()
             config = load_yaml_text(content, path=str(config_path))
             return config if config else {}
     except YamlParseError as e:
         raise ConfigError(f"Invalid YAML in {config_path}:\n{e}") from e
-    except Exception as e:
+    except OSError as e:
         raise ConfigError(f"Failed to read config file {config_path}: {e}") from e
 
 
@@ -109,7 +114,9 @@ def load_toml_config(config_path: Path) -> dict[str, Any]:
             data = tomllib.load(f)
             config = data.get("tool", {}).get("dbterd", {})
             return config if config else {}
-    except Exception as e:
+    except OSError as e:
+        raise ConfigError(f"Failed to read TOML file {config_path}: {e}") from e
+    except TOMLDecodeError as e:
         raise ConfigError(f"Invalid TOML in {config_path}: {e}") from e
 
 
@@ -201,7 +208,7 @@ def get_yaml_template(template_type: str = "dbt-core") -> str:
     template_file = CONFIG_TEMPLATE_DBT_CLOUD if template_type == "dbt-cloud" else CONFIG_TEMPLATE_DBT_CORE
     template_path = Path(__file__).parent.parent / "include" / "config_templates" / template_file
 
-    with open(template_path) as f:
+    with open(template_path, encoding="utf-8") as f:
         template_content = f.read()
 
     # Get default values

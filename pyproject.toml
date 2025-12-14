@@ -130,17 +130,22 @@ lint = [
   {cmd = "ruff format --check .", help = "Check code formatting with ruff"},
 ]
 
-# Testing
+# Testing (unit tests only)
 test = [
-  {cmd = "pytest . -vv", help = "Run tests with verbose output"},
+  {cmd = "pytest tests/unit -vv", help = "Run unit tests with verbose output"},
 ]
 
-# Test with coverage
+# Test with coverage (unit tests only)
 test-cov = [
   {cmd = "pytest --version", help = "Show pytest version"},
-  {cmd = "coverage run -m pytest .", help = "Run tests with coverage"},
+  {cmd = "coverage run -m pytest tests/unit", help = "Run unit tests with coverage"},
   {cmd = "coverage report --show-missing", help = "Show coverage report"},
   {cmd = "coverage xml", help = "Generate coverage XML report"},
+]
+
+# Integration tests (runs full dbterd and compares outputs)
+test-integration = [
+  {cmd = "pytest tests/integration -vv -m integration", help = "Run integration tests"},
 ]
 
 # Sync deps
@@ -194,10 +199,10 @@ exclude_lines = [
     "pragma: no cover",
     # Don't complain about abstract methods
     "@abstractmethod",
-    # Don't complain about TYPE_CHECKING imports
-    "if TYPE_CHECKING:",
     # Don't complain if tests don't hit defensive assertion code
     "raise NotImplementedError",
+    # Don't complain about protocol method body ellipsis
+    "^\\s*\\.\\.\\.$",
 ]
 
 [tool.ruff]
@@ -250,6 +255,7 @@ select = [
   "PL",   # pylint
   "SIM",  # flake8-simplify
   "ERA",  # eradicate commented-out code detection
+  "PLC0415",# ban import in functions
 ]
 # Rules to ignore
 ignore = [
@@ -278,7 +284,7 @@ docstring-code-format = true  # Format code blocks in docstrings
 docstring-code-line-length = 80  # Line length for code in docstrings
 
 [tool.pytest.ini_options] # Pytest configuration
-testpaths = ["tests"]  # Directory to find tests
+testpaths = ["tests/unit"]  # Directory to find tests (unit tests only by default)
 python_files = "test_*.py"  # Pattern to recognize test files
 python_classes = "Test*"  # Pattern to recognize test classes
 python_functions = "test_*"  # Pattern to recognize test functions
@@ -286,4 +292,7 @@ addopts = "--strict-markers -v"  # Additional options (verbose output)
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks integration tests (deselect with '-m \"not integration\"')"
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:dbt.*:",  # Ignore dbt library deprecation warnings
 ]
